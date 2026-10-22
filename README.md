@@ -91,15 +91,15 @@
 
 #### ■ 前提条件
 - Node.js 20+ または 22+
-- npm 10+
+- Bun 1.2+（パッケージマネージャー。依存バージョンは `bun.lock` で固定）
 
 #### ■ ローカル開発環境の起動
 ```bash
 # 依存パッケージのインストール
-npm install
+bun install
 
 # 開発サーバー起動 (tsx server.ts が立ち上がり、ポート3000でWeb & WebSocketが利用可能)
-npm run dev
+bun run dev
 ```
 ブラウザで `http://localhost:3000` にアクセスします。
 
@@ -108,10 +108,10 @@ npm run dev
 
 ```bash
 # 1. ビルド実行 (dist/ ディレクトリに静的アセットと server.cjs が生成されます)
-npm run build
+bun run build
 
 # 2. 本番サーバーの起動
-npm start
+bun run start
 ```
 
 #### ■ Google Cloud Run / Docker へのデプロイ
@@ -120,18 +120,23 @@ npm start
    - サーバーはポート `3000` で待ち受けます（`server/constants.ts` の `SERVER_PORT`）
 2. **Dockerfile 例**:
    ```dockerfile
-   FROM node:22-slim AS builder
+   FROM oven/bun:1 AS builder
    WORKDIR /app
-   COPY package*.json ./
-   RUN npm ci
+   COPY package.json bun.lock ./
+   RUN bun install --frozen-lockfile
    COPY . .
-   RUN npm run build
+   RUN bun run build
+
+   FROM oven/bun:1 AS deps
+   WORKDIR /app
+   COPY package.json bun.lock ./
+   RUN bun install --frozen-lockfile --production
 
    FROM node:22-slim AS runner
    WORKDIR /app
    ENV NODE_ENV=production
-   COPY package*.json ./
-   RUN npm ci --omit=dev
+   COPY package.json ./
+   COPY --from=deps /app/node_modules ./node_modules
    COPY --from=builder /app/dist ./dist
    EXPOSE 3000
    CMD ["node", "dist/server.cjs"]
@@ -212,25 +217,25 @@ The system is built on a robust **Full-Stack architecture (Client-Side SPA + Nod
 
 #### ■ Prerequisites
 - Node.js 20+ or 22+
-- npm 10+
+- Bun 1.2+ (package manager; dependencies are pinned in `bun.lock`)
 
 #### ■ Local Development
 ```bash
 # Install dependencies
-npm install
+bun install
 
 # Start development server on port 3000
-npm run dev
+bun run dev
 ```
 Open `http://localhost:3000` in your browser.
 
 #### ■ Production Build & Run
 ```bash
 # 1. Build client and bundle server
-npm run build
+bun run build
 
 # 2. Start production server
-npm start
+bun run start
 ```
 
 #### ■ Cloud Run / Docker Deployment

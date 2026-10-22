@@ -2,7 +2,17 @@ import React, { useState, useRef } from 'react';
 import { motion } from 'motion/react';
 import { Member } from '../types';
 import { RpgCharacterSprite } from './RpgCharacterSprite';
-import { Volume2, Move } from 'lucide-react';
+import { Volume2 } from 'lucide-react';
+import { AVATAR_POSITION_BOUNDS, DEFAULT_VOICE_RANGE, DRAG_START_THRESHOLD_PX } from '../constants/officeMap';
+import { RPG_JOB_LABELS } from '../constants/rpgJob';
+
+const clampToMap = (value: number, min: number, max: number) => Math.round(Math.max(min, Math.min(max, value)));
+
+// 職業名の日本語ラベル（例: "Lv.5 勇者"）
+const formatJobLabel = (member: Member) => {
+  const job = RPG_JOB_LABELS[member.rpgClass || 'hero'];
+  return job && `Lv.${member.rpgLevel || job.defaultLevel} ${job.label}`;
+};
 
 interface AvatarItemProps {
   member: Member;
@@ -27,7 +37,7 @@ export const AvatarItem: React.FC<AvatarItemProps> = ({
   isNearSelf = false,
   customBubble,
 }) => {
-  const voiceRadius = member.voiceRange || 110;
+  const voiceRadius = member.voiceRange || DEFAULT_VOICE_RANGE;
   const isIconMode = member.avatarMode === 'icon';
 
   const [isDragging, setIsDragging] = useState<boolean>(false);
@@ -65,7 +75,7 @@ export const AvatarItem: React.FC<AvatarItemProps> = ({
     const dx = (e.clientX - dragStartRef.current.pointerX) / zoomLevel;
     const dy = (e.clientY - dragStartRef.current.pointerY) / zoomLevel;
 
-    if (!dragStartRef.current.hasMoved && Math.hypot(dx, dy) >= 3) {
+    if (!dragStartRef.current.hasMoved && Math.hypot(dx, dy) >= DRAG_START_THRESHOLD_PX) {
       dragStartRef.current.hasMoved = true;
       setIsDragging(true);
     }
@@ -73,8 +83,8 @@ export const AvatarItem: React.FC<AvatarItemProps> = ({
     if (dragStartRef.current.hasMoved) {
       const rawX = dragStartRef.current.startX + dx;
       const rawY = dragStartRef.current.startY + dy;
-      const clampedX = Math.round(Math.max(35, Math.min(945, rawX)));
-      const clampedY = Math.round(Math.max(35, Math.min(585, rawY)));
+      const clampedX = clampToMap(rawX, AVATAR_POSITION_BOUNDS.minX, AVATAR_POSITION_BOUNDS.maxX);
+      const clampedY = clampToMap(rawY, AVATAR_POSITION_BOUNDS.minY, AVATAR_POSITION_BOUNDS.maxY);
 
       const currentOffset = {
         x: clampedX - dragStartRef.current.startX,
@@ -96,8 +106,8 @@ export const AvatarItem: React.FC<AvatarItemProps> = ({
     } catch {}
 
     const { hasMoved, startX, startY } = dragStartRef.current;
-    const finalX = Math.round(Math.max(35, Math.min(945, startX + dragOffset.x)));
-    const finalY = Math.round(Math.max(35, Math.min(585, startY + dragOffset.y)));
+    const finalX = clampToMap(startX + dragOffset.x, AVATAR_POSITION_BOUNDS.minX, AVATAR_POSITION_BOUNDS.maxX);
+    const finalY = clampToMap(startY + dragOffset.y, AVATAR_POSITION_BOUNDS.minY, AVATAR_POSITION_BOUNDS.maxY);
 
     dragStartRef.current = null;
     setIsDragging(false);
@@ -117,19 +127,6 @@ export const AvatarItem: React.FC<AvatarItemProps> = ({
   // 表示座標（ドラッグ中はオフセット分をリアルタイム加算）
   const displayX = member.position.x + dragOffset.x;
   const displayY = member.position.y + dragOffset.y;
-
-  // 職業名の日本語ラベル
-  const jobLabels: Record<string, string> = {
-    hero: `Lv.${member.rpgLevel || 5} 勇者`,
-    mage: `Lv.${member.rpgLevel || 7} 魔導士`,
-    knight: `Lv.${member.rpgLevel || 6} 聖騎士`,
-    cleric: `Lv.${member.rpgLevel || 4} 僧侶`,
-    scholar: `Lv.${member.rpgLevel || 8} 賢者/Dev`,
-    bard: `Lv.${member.rpgLevel || 5} 詩人/UI`,
-    robot: `Lv.${member.rpgLevel || 99} AIロボ`,
-    rogue: `Lv.${member.rpgLevel || 5} 盗賊/Ops`,
-    king: `Lv.${member.rpgLevel || 10} ギルド長`,
-  };
 
   return (
     <div
@@ -255,7 +252,7 @@ export const AvatarItem: React.FC<AvatarItemProps> = ({
 
         {/* 職業クラス/役割バッジ */}
         <div className="text-[8px] font-mono bg-black/80 text-amber-300 px-1.5 py-0.2 rounded border border-amber-800 shadow-xs mt-0.5 flex items-center gap-0.5">
-          <span>{isIconMode ? member.role.slice(0, 10) : jobLabels[member.rpgClass || 'hero']}</span>
+          <span>{isIconMode ? member.role.slice(0, 10) : formatJobLabel(member)}</span>
         </div>
       </div>
     </div>

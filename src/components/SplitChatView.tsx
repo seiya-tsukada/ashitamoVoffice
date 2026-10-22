@@ -1,33 +1,22 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Member, ChatMessage, PageType } from '../types';
-import { 
-  Send, 
-  Smile, 
-  Sparkles, 
-  Bot, 
-  Mic, 
-  MicOff, 
-  Volume2, 
-  Radio, 
-  Calendar, 
-  User, 
-  MessageSquare, 
-  CheckCheck, 
-  Clock,
-  Play,
-  RotateCcw,
-  PlusCircle,
-  HelpCircle,
-  Video,
-  Monitor
+import {
+  Send,
+  Sparkles,
+  Bot,
+  Volume2,
+  Radio,
+  Calendar,
+  MessageSquare,
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion } from 'motion/react';
+import { AUTO_REPLY_DELAY_MS, QUICK_MESSAGE_TEMPLATES, buildAutoReplies } from '../constants/chat';
 
 interface SplitChatViewProps {
   members: Member[];
   selfMember: Member;
   chatMessages: ChatMessage[];
-  onSendMessage: (content: string, isAutonomous?: boolean, targetSenderId?: string) => void;
+  onSendMessage: (content: string) => void;
   selectedMember: Member;
   onSelectMember: (member: Member) => void;
   onNavigateTo: (page: PageType, member?: Member) => void;
@@ -63,29 +52,17 @@ export const SplitChatView: React.FC<SplitChatViewProps> = ({
 
     const userText = inputMessage;
     setInputMessage('');
-    onSendMessage(userText, false);
+    onSendMessage(userText);
 
     // 相手が自律的に返信するシミュレーション（1.2秒後）
     setIsTyping(true);
     setTimeout(() => {
       setIsTyping(false);
-      const replies = [
-        `了解しました！「${userText.slice(0, 15)}...」の件ですね。進めておきます！`,
-        `ありがとうございます！ちょうどその件確認したかったところでした😊`,
-        `共有助かります！カレンダー予約画面から1on1も調整できますのでぜひ！`,
-        `ナイスです✨ 今日の夕方にovice空間で少しすり合わせしましょう！`,
-      ];
+      const replies = buildAutoReplies(userText);
       const randomReply = replies[Math.floor(Math.random() * replies.length)];
-      onSendMessage(randomReply, false, selectedMember.id);
-    }, 1400);
+      onSendMessage(randomReply);
+    }, AUTO_REPLY_DELAY_MS);
   };
-
-  const quickTemplates = [
-    'お疲れ様です！',
-    '今少しお時間大丈夫ですか？',
-    '資料確認しました！✨',
-    'カレンダー予約入れました📅',
-  ];
 
   return (
     <div className="w-full h-[calc(100vh-4rem)] flex flex-col md:flex-row bg-slate-100 overflow-hidden select-none">
@@ -426,10 +403,10 @@ export const SplitChatView: React.FC<SplitChatViewProps> = ({
         {/* クイック定型文チップ */}
         <div className="px-4 py-1.5 bg-white border-t border-slate-100 flex items-center gap-1.5 overflow-x-auto text-[11px]">
           <span className="text-slate-400 text-[10px] shrink-0 font-medium">クイック送信:</span>
-          {quickTemplates.map((tmpl, idx) => (
+          {QUICK_MESSAGE_TEMPLATES.map((tmpl, idx) => (
             <button
               key={idx}
-              onClick={() => onSendMessage(tmpl, false)}
+              onClick={() => onSendMessage(tmpl)}
               className="shrink-0 bg-slate-100 hover:bg-slate-200 text-slate-700 px-2.5 py-1 rounded-full border border-slate-200/80 transition-colors font-medium"
             >
               {tmpl}

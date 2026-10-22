@@ -1,12 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { PageType, Member, ChatMessage, Booking, UserStatus } from './types';
-import { 
-  INITIAL_MEMBERS, 
-  OFFICE_ZONES, 
-  INITIAL_BOOKINGS, 
-  AUTONOMOUS_MESSAGES_POOL, 
-  USER_STATUSES 
-} from './data/mockData';
+import { PageType, Member, Booking, UserStatus } from './types';
+import { INITIAL_MEMBERS, INITIAL_BOOKINGS, AUTONOMOUS_MESSAGES_POOL } from './data/mockData';
+import { OFFICE_ZONES } from './constants/zones';
+import { USER_STATUSES } from './constants/userStatus';
+import { NPC_AUTO_BOT_PREFIX } from './constants/chat';
+import { LOCAL_REACTION_DURATION_MS } from './constants/realtime';
 import { Navigation } from './components/Navigation';
 import { OfficeView } from './components/OfficeView';
 import { SplitChatView } from './components/SplitChatView';
@@ -122,14 +120,14 @@ export default function App() {
   };
 
   // チャット送信
-  const handleSendMessage = (content: string, isAutonomous = false, targetSenderId?: string) => {
+  const handleSendMessage = (content: string) => {
     sendChat(content);
   };
 
   // 自律発話の手動トリガー
   const handleTriggerAutonomousPing = () => {
     const randomMsg = AUTONOMOUS_MESSAGES_POOL[Math.floor(Math.random() * AUTONOMOUS_MESSAGES_POOL.length)];
-    sendChat(`💬 [NPC Auto-Bot] ${randomMsg.content}`);
+    sendChat(`${NPC_AUTO_BOT_PREFIX}${randomMsg.content}`);
   };
 
   // リアクション送信
@@ -138,7 +136,7 @@ export default function App() {
     sendReaction(emoji);
     setTimeout(() => {
       setLocalReactionEmoji(null);
-    }, 4000);
+    }, LOCAL_REACTION_DURATION_MS);
   };
 
   // ステータス変更

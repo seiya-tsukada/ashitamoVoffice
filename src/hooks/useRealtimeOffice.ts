@@ -1,6 +1,16 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { Member, ChatMessage, RpgJobClass, AvatarMode } from '../types';
-import { USER_STATUSES } from '../data/mockData';
+import { SESSION_STORAGE_KEYS } from '../constants/storage';
+import { REMOTE_REACTION_DURATION_MS, WS_PING_INTERVAL_MS, WS_RECONNECT_DELAY_MS } from '../constants/realtime';
+import { CLIENT_MESSAGE, SERVER_MESSAGE, WS_PATH, ClientMessage, ServerMessage } from '../../shared/realtime';
+import { formatChatTimestamp } from '../../shared/time';
+
+// 接続中の場合のみ送信し、送信できたかを返す
+const sendIfOpen = (ws: WebSocket | null, message: ClientMessage): boolean => {
+  if (ws?.readyState !== WebSocket.OPEN) return false;
+  ws.send(JSON.stringify(message));
+  return true;
+};
 
 interface UseRealtimeOfficeProps {
   initialSelf: Member;
@@ -15,15 +25,15 @@ export function useRealtimeOffice({
 }: UseRealtimeOfficeProps) {
   const [selfMember, setSelfMember] = useState<Member>(() => {
     // セッションストレージから自分の識別情報を取得（タブ再読み込み時も同一IDを維持、別タブなら別ID）
-    const storedId = sessionStorage.getItem('virtual_office_user_id');
-    const storedName = sessionStorage.getItem('virtual_office_user_name');
-    const storedRole = sessionStorage.getItem('virtual_office_user_role');
-    const storedJob = sessionStorage.getItem('virtual_office_user_job') as RpgJobClass | null;
-    const storedAvatarMode = sessionStorage.getItem('virtual_office_user_avatar_mode') as AvatarMode | null;
-    const storedAvatar = sessionStorage.getItem('virtual_office_user_avatar');
+    const storedId = sessionStorage.getItem(SESSION_STORAGE_KEYS.USER_ID);
+    const storedName = sessionStorage.getItem(SESSION_STORAGE_KEYS.USER_NAME);
+    const storedRole = sessionStorage.getItem(SESSION_STORAGE_KEYS.USER_ROLE);
+    const storedJob = sessionStorage.getItem(SESSION_STORAGE_KEYS.USER_JOB) as RpgJobClass | null;
+    const storedAvatarMode = sessionStorage.getItem(SESSION_STORAGE_KEYS.USER_AVATAR_MODE) as AvatarMode | null;
+    const storedAvatar = sessionStorage.getItem(SESSION_STORAGE_KEYS.USER_AVATAR);
 
     const myId = storedId || `user-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 6)}`;
-    sessionStorage.setItem('virtual_office_user_id', myId);
+    sessionStorage.setItem(SESSION_STORAGE_KEYS.USER_ID, myId);
 
     return {
       ...initialSelf,
@@ -43,7 +53,7 @@ export function useRealtimeOffice({
   const [remoteReactions, setRemoteReactions] = useState<Record<string, string>>({});
 
   const wsRef = useRef<WebSocket | null>(null);
-  const reconnectTimerRef = useRef<any>(null);
+  const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const selfMemberRef = useRef<Member>(selfMember);
 
   useEffect(() => {
@@ -58,7 +68,7 @@ export function useRealtimeOffice({
       if (wsRef.current?.readyState === WebSocket.OPEN) return;
 
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const wsUrl = `${protocol}//${window.location.host}/ws`;
+      const wsUrl = `${protocol}//${window.location.host}${WS_PATH}`;
 
       const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
@@ -70,35 +80,31 @@ export function useRealtimeOffice({
 
         // サーバーへ参加 (join) 送信
         const currentSelf = selfMemberRef.current;
-        ws.send(
-          JSON.stringify({
-            type: 'join',
-            payload: currentSelf,
-          })
-        );
+        sendIfOpen(ws, { type: CLIENT_MESSAGE.JOIN, payload: currentSelf });
       };
 
       ws.onmessage = (event) => {
         if (isUnmounted) return;
         try {
-          const data = JSON.parse(event.data);
-          const { type, payload } = data;
+          // サーバーから届くユーザー/チャットはクライアント側の Member / ChatMessage として扱う
+          const message = JSON.parse(event.data) as ServerMessage;
 
-          switch (type) {
-            case 'init-state': {
+          switch (message.type) {
+            case SERVER_MESSAGE.INIT_STATE: {
+              const { payload } = message;
               // サーバーから初期状態を受信
-              const remoteUsers: Member[] = payload.users || [];
-              const myId = selfMemberRef.current.id;
+              const remoteUsers = (payload.users || []) as Member[];
 
               // 他者メンバーリスト
               setMembers(remoteUsers);
-              if (payload.chats) setChats(payload.chats);
+              if (payload.chats) setChats(payload.chats as ChatMessage[]);
               if (payload.activeConnectionCount) setOnlineCount(payload.activeConnectionCount);
               break;
             }
 
-            case 'user-joined': {
-              const newUser: Member = payload.user;
+            case SERVER_MESSAGE.USER_JOINED: {
+              const { payload } = message;
+              const newUser = payload.user as Member;
               setMembers((prev) => {
                 const exists = prev.some((m) => m.id === newUser.id);
                 if (exists) {
@@ -112,7 +118,8 @@ export function useRealtimeOffice({
               break;
             }
 
-            case 'user-moved': {
+            case SERVER_MESSAGE.USER_MOVED: {
+              const { payload } = message;
               const { userId, position, zoneId, zoneName } = payload;
               setMembers((prev) =>
                 prev.map((m) => {
@@ -130,8 +137,9 @@ export function useRealtimeOffice({
               break;
             }
 
-            case 'user-updated': {
-              const updatedUser: Member = payload.user;
+            case SERVER_MESSAGE.USER_UPDATED: {
+              const { payload } = message;
+              const updatedUser = payload.user as Member;
               setMembers((prev) =>
                 prev.map((m) => (m.id === updatedUser.id ? { ...m, ...updatedUser } : m))
               );
@@ -141,7 +149,8 @@ export function useRealtimeOffice({
               break;
             }
 
-            case 'user-left': {
+            case SERVER_MESSAGE.USER_LEFT: {
+              const { payload } = message;
               const { userId, activeConnectionCount } = payload;
               setMembers((prev) => prev.filter((m) => m.id !== userId));
               if (activeConnectionCount) {
@@ -150,14 +159,16 @@ export function useRealtimeOffice({
               break;
             }
 
-            case 'new-chat': {
-              const newChat: ChatMessage = payload;
+            case SERVER_MESSAGE.NEW_CHAT: {
+              const { payload } = message;
+              const newChat = payload as ChatMessage;
               setChats((prev) => [...prev, newChat]);
               if (onReceiveMessage) onReceiveMessage(newChat);
               break;
             }
 
-            case 'user-reaction': {
+            case SERVER_MESSAGE.USER_REACTION: {
+              const { payload } = message;
               const { userId, emoji } = payload;
               setRemoteReactions((prev) => ({ ...prev, [userId]: emoji }));
               if (onUserReaction) onUserReaction(userId, emoji);
@@ -169,7 +180,7 @@ export function useRealtimeOffice({
                   delete updated[userId];
                   return updated;
                 });
-              }, 3500);
+              }, REMOTE_REACTION_DURATION_MS);
               break;
             }
           }
@@ -182,7 +193,7 @@ export function useRealtimeOffice({
         if (isUnmounted) return;
         setIsConnected(false);
         // 再接続トライ
-        reconnectTimerRef.current = setTimeout(connectWebSocket, 2000);
+        reconnectTimerRef.current = setTimeout(connectWebSocket, WS_RECONNECT_DELAY_MS);
       };
 
       ws.onerror = () => {
@@ -194,10 +205,8 @@ export function useRealtimeOffice({
 
     // 定期 Ping (30s)
     const pingInterval = setInterval(() => {
-      if (wsRef.current?.readyState === WebSocket.OPEN) {
-        wsRef.current.send(JSON.stringify({ type: 'ping' }));
-      }
-    }, 30000);
+      sendIfOpen(wsRef.current, { type: CLIENT_MESSAGE.PING });
+    }, WS_PING_INTERVAL_MS);
 
     return () => {
       isUnmounted = true;
@@ -234,29 +243,25 @@ export function useRealtimeOffice({
       )
     );
 
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send(
-        JSON.stringify({
-          type: 'move',
-          payload: {
-            position: pos,
-            zoneId: updatedZoneId,
-            zoneName: updatedZoneName,
-          },
-        })
-      );
-    }
+    sendIfOpen(wsRef.current, {
+      type: CLIENT_MESSAGE.MOVE,
+      payload: {
+        position: pos,
+        zoneId: updatedZoneId,
+        zoneName: updatedZoneName,
+      },
+    });
   }, []);
 
   // 2. プロフィール / アバター / ステータス変更送信
   const updateSelfProfile = useCallback((updated: Partial<Member>) => {
     setSelfMember((prev) => {
       const next = { ...prev, ...updated };
-      if (updated.name) sessionStorage.setItem('virtual_office_user_name', updated.name);
-      if (updated.role) sessionStorage.setItem('virtual_office_user_role', updated.role);
-      if (updated.rpgClass) sessionStorage.setItem('virtual_office_user_job', updated.rpgClass);
-      if (updated.avatarMode) sessionStorage.setItem('virtual_office_user_avatar_mode', updated.avatarMode);
-      if (updated.avatar) sessionStorage.setItem('virtual_office_user_avatar', updated.avatar);
+      if (updated.name) sessionStorage.setItem(SESSION_STORAGE_KEYS.USER_NAME, updated.name);
+      if (updated.role) sessionStorage.setItem(SESSION_STORAGE_KEYS.USER_ROLE, updated.role);
+      if (updated.rpgClass) sessionStorage.setItem(SESSION_STORAGE_KEYS.USER_JOB, updated.rpgClass);
+      if (updated.avatarMode) sessionStorage.setItem(SESSION_STORAGE_KEYS.USER_AVATAR_MODE, updated.avatarMode);
+      if (updated.avatar) sessionStorage.setItem(SESSION_STORAGE_KEYS.USER_AVATAR, updated.avatar);
       return next;
     });
 
@@ -264,34 +269,24 @@ export function useRealtimeOffice({
       prev.map((m) => (m.id === selfMemberRef.current.id ? { ...m, ...updated } : m))
     );
 
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send(
-        JSON.stringify({
-          type: 'update-profile',
-          payload: updated,
-        })
-      );
-    }
+    sendIfOpen(wsRef.current, { type: CLIENT_MESSAGE.UPDATE_PROFILE, payload: updated });
   }, []);
 
   // 3. チャット送信
   const sendChat = useCallback((content: string, channelId?: string) => {
     if (!content.trim()) return;
     const current = selfMemberRef.current;
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send(
-        JSON.stringify({
-          type: 'send-chat',
-          payload: {
-            senderId: current.id,
-            senderName: current.name,
-            senderAvatar: current.avatar,
-            content,
-            channelId,
-          },
-        })
-      );
-    } else {
+    const sent = sendIfOpen(wsRef.current, {
+      type: CLIENT_MESSAGE.SEND_CHAT,
+      payload: {
+        senderId: current.id,
+        senderName: current.name,
+        senderAvatar: current.avatar,
+        content,
+        channelId,
+      },
+    });
+    if (!sent) {
       // フォールバック（オフライン時）
       const localMsg: ChatMessage = {
         id: `local-${Date.now()}`,
@@ -300,7 +295,7 @@ export function useRealtimeOffice({
         senderAvatar: current.avatar,
         isSelf: true,
         content,
-        timestamp: new Date().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' }),
+        timestamp: formatChatTimestamp(),
         type: 'text',
         channelId,
       };
@@ -310,14 +305,7 @@ export function useRealtimeOffice({
 
   // 4. リアクション送信
   const sendReaction = useCallback((emoji: string) => {
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send(
-        JSON.stringify({
-          type: 'reaction',
-          payload: { emoji },
-        })
-      );
-    }
+    sendIfOpen(wsRef.current, { type: CLIENT_MESSAGE.REACTION, payload: { emoji } });
   }, []);
 
   return {

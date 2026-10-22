@@ -1,10 +1,7 @@
 import React from 'react';
 import { PageType } from '../types';
-import { 
-  Building2, 
-  Columns2, 
-  UserCheck 
-} from 'lucide-react';
+import { Building2 } from 'lucide-react';
+import { NAV_PAGES } from '../constants/navigation';
 
 interface NavigationProps {
   currentPage: PageType;
@@ -23,27 +20,6 @@ export const Navigation: React.FC<NavigationProps> = ({
   unreadAutonomousCount = 0,
   isConnected = true,
 }) => {
-  const pages: { id: PageType; title: string; subtitle: string; icon: React.ElementType }[] = [
-    {
-      id: 'office',
-      title: '1. オフィス空間',
-      subtitle: 'バーチャル空間・アバター配置',
-      icon: Building2,
-    },
-    {
-      id: 'split-chat',
-      title: '2. スプリットチャット',
-      subtitle: '左アバター × 右自律チャット',
-      icon: Columns2,
-    },
-    {
-      id: 'profile-booking',
-      title: '3. プロフィール＆予約',
-      subtitle: '詳細情報＆カレンダー1on1予約',
-      icon: UserCheck,
-    },
-  ];
-
   return (
     <header
       id="app-header"
@@ -84,7 +60,7 @@ export const Navigation: React.FC<NavigationProps> = ({
 
       {/* 中央：3ページのステップ/タブナビゲーション */}
       <nav className="flex items-center gap-1 bg-slate-100/80 p-1 rounded-xl border border-slate-200/60 shadow-inner">
-        {pages.map((p, idx) => {
+        {NAV_PAGES.map((p, idx) => {
           const Icon = p.icon;
           const isActive = currentPage === p.id;
           return (

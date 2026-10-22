@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { Member, RpgJobClass, AvatarMode } from '../types';
-import { CHARACTER_PRESETS, PHOTO_AVATAR_OPTIONS, CharacterPreset } from '../data/characterPresets';
+import { CHARACTER_PRESETS, PHOTO_AVATAR_OPTIONS } from '../data/characterPresets';
 import { RpgCharacterSprite } from './RpgCharacterSprite';
-import { Sparkles, User, Image, Check, Shuffle, X } from 'lucide-react';
+import { Sparkles, User, Check, Shuffle, X } from 'lucide-react';
 import { motion } from 'motion/react';
 
 interface CharacterAvatarPickerModalProps {

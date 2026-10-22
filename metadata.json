@@ -1,6 +1,0 @@
-{
-  "name": "Virtual Office Space",
-  "description": "oviceスタイルのバーチャルオフィス空間、アバター近接チャット、プロフィール＆カレンダー予約機能を提供するWebアプリケーション",
-  "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
-}

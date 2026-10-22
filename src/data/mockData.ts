@@ -1,12 +1,5 @@
-import { Member, OfficeZone, ChatMessage, Booking, UserStatus } from '../types';
-
-export const USER_STATUSES: Record<string, UserStatus> = {
-  online: { state: 'online', label: 'オンライン (Online)', emoji: '🟢', color: '#10B981' },
-  busy: { state: 'busy', label: '会議中 (Busy)', emoji: '🔴', color: '#EF4444' },
-  focus: { state: 'focus', label: '集中作業中 (Focus)', emoji: '🟣', color: '#A855F7' },
-  away: { state: 'away', label: '離席中 (Away)', emoji: '🟡', color: '#F59E0B' },
-  break: { state: 'break', label: '休憩中 (Break)', emoji: '☕️', color: '#3B82F6' },
-};
+import { Member, ChatMessage, Booking } from '../types';
+import { USER_STATUSES } from '../constants/userStatus';
 
 export const INITIAL_MEMBERS: Member[] = [
   {
@@ -182,74 +175,6 @@ export const INITIAL_MEMBERS: Member[] = [
     availableSlots: [
       { id: 'slot-bot1', date: '2026-08-25', time: 'Anytime', available: true },
     ],
-  },
-];
-
-export const OFFICE_ZONES: OfficeZone[] = [
-  {
-    id: 'guild_tavern',
-    name: 'カフェスペース ＆ リフレッシュラウンジ',
-    rpgName: '☕ カフェスペース ＆ リフレッシュラウンジ',
-    type: 'cafe',
-    x: 20,
-    y: 50,
-    width: 260,
-    height: 200,
-    description: 'コーヒーやお茶を片手に雑談や休憩を楽しむカウンター席。リラックスしたカジュアルな会話が生まれる場所。',
-    color: 'bg-amber-500/20 border-amber-500 text-amber-200',
-    icon: '☕',
-  },
-  {
-    id: 'throne_lounge',
-    name: 'メイン執務ラウンジ ＆ コラボレーションエリア',
-    rpgName: '💼 メイン執務ラウンジ ＆ コラボレーションエリア',
-    type: 'lounge',
-    x: 285,
-    y: 50,
-    width: 380,
-    height: 270,
-    description: 'オープンスペースとミーティングソファ。空間音声で近くのメンバーと自然にディスカッションや情報共有ができます。',
-    color: 'bg-red-500/20 border-red-500 text-red-200',
-    icon: '💼',
-  },
-  {
-    id: 'magic_library',
-    name: '集中作業ブース ＆ サイレントスペース',
-    rpgName: '🎧 集中作業ブース ＆ サイレントスペース',
-    type: 'focus',
-    x: 670,
-    y: 50,
-    width: 260,
-    height: 200,
-    description: '深い集中作業やコードレビューのためのサイレント空間。周囲の音声をミュートにして個人ワークに没頭できます。',
-    color: 'bg-purple-500/20 border-purple-500 text-purple-200',
-    icon: '🎧',
-  },
-  {
-    id: 'forge_lab',
-    name: 'プロジェクトルーム ＆ クリエイティブラボ',
-    rpgName: '💡 プロジェクトルーム ＆ クリエイティブラボ',
-    type: 'studio',
-    x: 20,
-    y: 350,
-    width: 300,
-    height: 200,
-    description: '新機能の企画立案、UIモック作成、デザインプロトタイプ検討を行うクリエイティブルーム。',
-    color: 'bg-cyan-500/20 border-cyan-500 text-cyan-200',
-    icon: '💡',
-  },
-  {
-    id: 'grand_hall',
-    name: 'メインカンファレンスルーム (大会議室)',
-    rpgName: '🏛️ メインカンファレンスルーム (大会議室)',
-    type: 'meeting',
-    x: 650,
-    y: 350,
-    width: 340,
-    height: 200,
-    description: '大画面ディスプレイを使ったクライアント商談、プレゼンテーション、全体定例ミーティングを行う大会議室。',
-    color: 'bg-emerald-500/20 border-emerald-500 text-emerald-200',
-    icon: '🏛️',
   },
 ];
 

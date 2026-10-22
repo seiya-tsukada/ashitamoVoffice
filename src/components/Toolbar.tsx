@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { UserStatus } from '../types';
-import { USER_STATUSES } from '../data/mockData';
+import { USER_STATUSES } from '../constants/userStatus';
+import { REACTION_EMOJIS } from '../constants/chat';
 import { 
   Mic, 
   MicOff, 
@@ -44,8 +45,6 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   const [showStatusPicker, setShowStatusPicker] = useState(false);
   const [showReactionPicker, setShowReactionPicker] = useState(false);
   const [isScreenSharing, setIsScreenSharing] = useState(false);
-
-  const emojis = ['👏', '👍', '❤️', '🎉', '💡', '☕️', '🔥', '🙌'];
 
   return (
     <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 bg-slate-900/90 backdrop-blur-md text-white px-3 py-2 rounded-2xl shadow-2xl border border-slate-700/70 select-none">
@@ -169,7 +168,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
 
         {showReactionPicker && (
           <div className="absolute bottom-14 right-0 bg-slate-800 border border-slate-700 rounded-xl p-2 shadow-2xl z-50 grid grid-cols-4 gap-1.5">
-            {emojis.map((emoji) => (
+            {REACTION_EMOJIS.map((emoji) => (
               <button
                 key={emoji}
                 onClick={() => {

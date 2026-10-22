@@ -20,6 +20,23 @@ import {
   Users
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import {
+  AVATAR_POPUP_LAYOUT,
+  DEFAULT_VOICE_RANGE,
+  OFFICE_MAP_HEIGHT,
+  OFFICE_MAP_WIDTH,
+  PROXIMITY_RANGE_RATIO,
+  ZOOM,
+} from '../constants/officeMap';
+import {
+  CONFERENCE_ZONES,
+  CONFERENCE_ZONE_BOUNDS,
+  DEFAULT_OFFICE_POSITION,
+  DEFAULT_OFFICE_ZONE,
+  OFFICE_FLOOR,
+  OFFICE_ZONE_SELECT_ORDER,
+  OfficeFloor,
+} from '../constants/zones';
 
 interface OfficeViewProps {
   members: Member[];
@@ -48,20 +65,23 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
 }) => {
   const officeRef = useRef<HTMLDivElement>(null);
   const [clickedMember, setClickedMember] = useState<Member | null>(null);
-  const [zoomLevel, setZoomLevel] = useState<number>(1);
+  const [zoomLevel, setZoomLevel] = useState<number>(ZOOM.DEFAULT);
   const [isAvatarModalOpen, setIsAvatarModalOpen] = useState<boolean>(false);
   
   // シチュエーション選択タブ：'rpg_office' (SFC風 RPGオフィス), 'all' (全体 カンファレンス・サミット)
-  const [activeFloor, setActiveFloor] = useState<'rpg_office' | 'all'>('rpg_office');
+  const [activeFloor, setActiveFloor] = useState<OfficeFloor>(OFFICE_FLOOR.RPG_OFFICE);
 
   // 座標から居場所ゾーン（プロパティ）を自動判定
   const getZoneFromPosition = (pos: { x: number; y: number }): { zoneId: string; zoneName: string } => {
-    if (activeFloor === 'all') {
-      if (pos.x < 210 && pos.y < 105) return { zoneId: 'parking_lot', zoneName: '🅿️ 総合受付 ＆ エントランスエリア' };
-      if (pos.x < 210) return { zoneId: 'timetable_board', zoneName: '📋 総合案内インフォメーション ＆ タイムテーブル' };
-      if (pos.x >= 210 && pos.x <= 690 && pos.y <= 160) return { zoneId: 'main_stage', zoneName: '🎤 メインステージ (基調講演・サミット)' };
-      if (pos.x >= 210 && pos.x <= 690) return { zoneId: 'audience_seats', zoneName: '🪑 メインアリーナ (聴講・観客エリア)' };
-      return { zoneId: 'booth_area', zoneName: '🏢 企業展示 ＆ スポンサーブースエリア' };
+    if (activeFloor === OFFICE_FLOOR.CONFERENCE) {
+      const { sideAreaMaxX, entranceMaxY, arenaMaxX, stageMaxY } = CONFERENCE_ZONE_BOUNDS;
+      let zone: { zoneId: string; zoneName: string };
+      if (pos.x < sideAreaMaxX && pos.y < entranceMaxY) zone = CONFERENCE_ZONES.parking_lot;
+      else if (pos.x < sideAreaMaxX) zone = CONFERENCE_ZONES.timetable_board;
+      else if (pos.x <= arenaMaxX && pos.y <= stageMaxY) zone = CONFERENCE_ZONES.main_stage;
+      else if (pos.x <= arenaMaxX) zone = CONFERENCE_ZONES.audience_seats;
+      else zone = CONFERENCE_ZONES.booth_area;
+      return { zoneId: zone.zoneId, zoneName: zone.zoneName };
     }
 
     for (const z of zones) {
@@ -74,7 +94,7 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
         return { zoneId: z.id, zoneName: z.rpgName || z.name };
       }
     }
-    return { zoneId: 'throne_lounge', zoneName: '💼 メイン執務ラウンジ ＆ コラボレーションエリア' };
+    return { ...DEFAULT_OFFICE_ZONE };
   };
 
   // ゾーン選択（プロパティ居場所ドロップダウンからのテレポートプロット）
@@ -99,8 +119,8 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
     const dx = m.position.x - selfMember.position.x;
     const dy = m.position.y - selfMember.position.y;
     const distance = Math.sqrt(dx * dx + dy * dy);
-    const combinedRange = (m.voiceRange || 110) + (selfMember.voiceRange || 110);
-    return distance < combinedRange * 0.75;
+    const combinedRange = (m.voiceRange || DEFAULT_VOICE_RANGE) + (selfMember.voiceRange || DEFAULT_VOICE_RANGE);
+    return distance < combinedRange * PROXIMITY_RANGE_RATIO;
   };
 
   const nearMembers = members.filter((m) => isNear(m));
@@ -119,10 +139,10 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
 
             {/* 居場所プロパティ選択（選択すると即座にオフィス空間内の対応座標にプロット） */}
             <select
-              value={selfMember.currentZoneId || 'throne_lounge'}
+              value={selfMember.currentZoneId || DEFAULT_OFFICE_ZONE.zoneId}
               onChange={(e) => {
                 const zId = e.target.value;
-                if (activeFloor === 'rpg_office') {
+                if (activeFloor === OFFICE_FLOOR.RPG_OFFICE) {
                   const foundZone = zones.find(z => z.id === zId);
                   if (foundZone) {
                     const targetPos = {
@@ -133,32 +153,25 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
                   }
                 } else {
                   // 全体カンファレンス用
-                  if (zId === 'main_stage') handleTeleportToZone('main_stage', '🎤 メインステージ (基調講演・サミット)', { x: 455, y: 75 });
-                  if (zId === 'audience_seats') handleTeleportToZone('audience_seats', '🪑 メインアリーナ (聴講・観客エリア)', { x: 455, y: 340 });
-                  if (zId === 'parking_lot') handleTeleportToZone('parking_lot', '🅿️ 総合受付 ＆ エントランスエリア', { x: 105, y: 55 });
-                  if (zId === 'timetable_board') handleTeleportToZone('timetable_board', '📋 総合案内インフォメーション ＆ タイムテーブル', { x: 105, y: 200 });
-                  if (zId === 'booth_area') handleTeleportToZone('booth_area', '🏢 企業展示 ＆ スポンサーブースエリア', { x: 840, y: 220 });
+                  const conferenceZone = Object.values(CONFERENCE_ZONES).find((z) => z.zoneId === zId);
+                  if (conferenceZone) {
+                    handleTeleportToZone(conferenceZone.zoneId, conferenceZone.zoneName, { ...conferenceZone.position });
+                  }
                 }
               }}
               className="bg-[#2e1f14] text-amber-200 text-xs font-black px-2.5 py-1 rounded-lg border border-amber-500 shadow-sm focus:outline-none focus:ring-2 focus:ring-amber-400 cursor-pointer"
             >
-              {activeFloor === 'rpg_office' ? (
-                <>
-                  <option value="throne_lounge">💼 メイン執務ラウンジ ＆ コラボレーションエリア</option>
-                  <option value="guild_tavern">☕ カフェスペース ＆ リフレッシュラウンジ</option>
-                  <option value="magic_library">🎧 集中作業ブース ＆ サイレントスペース</option>
-                  <option value="forge_lab">💡 プロジェクトルーム ＆ クリエイティブラボ</option>
-                  <option value="grand_hall">🏛️ メインカンファレンスルーム (大会議室)</option>
-                </>
-              ) : (
-                <>
-                  <option value="main_stage">🎤 メインステージ (基調講演・サミット)</option>
-                  <option value="audience_seats">🪑 メインアリーナ (聴講・観客エリア)</option>
-                  <option value="parking_lot">🅿️ 総合受付 ＆ エントランスエリア</option>
-                  <option value="timetable_board">📋 総合案内インフォメーション ＆ タイムテーブル</option>
-                  <option value="booth_area">🏢 企業展示 ＆ スポンサーブースエリア</option>
-                </>
-              )}
+              {activeFloor === OFFICE_FLOOR.RPG_OFFICE
+                ? OFFICE_ZONE_SELECT_ORDER.map((zoneId) => (
+                    <option key={zoneId} value={zoneId}>
+                      {zones.find((z) => z.id === zoneId)?.rpgName}
+                    </option>
+                  ))
+                : Object.values(CONFERENCE_ZONES).map((z) => (
+                    <option key={z.zoneId} value={z.zoneId}>
+                      {z.zoneName}
+                    </option>
+                  ))}
             </select>
           </div>
 
@@ -167,11 +180,11 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
             <button
               id="tab-rpg-office"
               onClick={() => {
-                setActiveFloor('rpg_office');
-                handleTeleportToZone('throne_lounge', '💼 メイン執務ラウンジ ＆ コラボレーションエリア', { x: 440, y: 190 });
+                setActiveFloor(OFFICE_FLOOR.RPG_OFFICE);
+                handleTeleportToZone(DEFAULT_OFFICE_ZONE.zoneId, DEFAULT_OFFICE_ZONE.zoneName, { ...DEFAULT_OFFICE_POSITION });
               }}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
-                activeFloor === 'rpg_office'
+                activeFloor === OFFICE_FLOOR.RPG_OFFICE
                   ? 'bg-amber-500 text-slate-950 font-black shadow-md scale-[1.02]'
                   : 'text-amber-200/80 hover:text-amber-100 hover:bg-[#2b1e15]'
               }`}
@@ -183,11 +196,12 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
             <button
               id="tab-conference-all"
               onClick={() => {
-                setActiveFloor('all');
-                handleTeleportToZone('main_stage', '🎤 メインステージ (基調講演・サミット)', { x: 455, y: 75 });
+                setActiveFloor(OFFICE_FLOOR.CONFERENCE);
+                const { zoneId, zoneName, position } = CONFERENCE_ZONES.main_stage;
+                handleTeleportToZone(zoneId, zoneName, { ...position });
               }}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
-                activeFloor === 'all'
+                activeFloor === OFFICE_FLOOR.CONFERENCE
                   ? 'bg-amber-500 text-slate-950 font-black shadow-md scale-[1.02]'
                   : 'text-amber-200/80 hover:text-amber-100 hover:bg-[#2b1e15]'
               }`}
@@ -225,7 +239,7 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
         <div className="flex items-center gap-3">
           <div className="flex items-center bg-[#17100b] p-0.5 rounded-xl border border-[#5c3a1e]">
             <button
-              onClick={() => setZoomLevel((prev) => Math.max(0.75, prev - 0.1))}
+              onClick={() => setZoomLevel((prev) => Math.max(ZOOM.MIN, prev - ZOOM.STEP))}
               className="p-1.5 text-amber-200 hover:text-white hover:bg-[#2e1f14] rounded-lg transition-colors cursor-pointer"
               title="縮小"
             >
@@ -235,14 +249,14 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
               {Math.round(zoomLevel * 100)}%
             </span>
             <button
-              onClick={() => setZoomLevel((prev) => Math.min(1.3, prev + 0.1))}
+              onClick={() => setZoomLevel((prev) => Math.min(ZOOM.MAX, prev + ZOOM.STEP))}
               className="p-1.5 text-amber-200 hover:text-white hover:bg-[#2e1f14] rounded-lg transition-colors cursor-pointer"
               title="拡大"
             >
               <ZoomIn className="w-3.5 h-3.5" />
             </button>
             <button
-              onClick={() => setZoomLevel(1)}
+              onClick={() => setZoomLevel(ZOOM.DEFAULT)}
               className="p-1.5 text-amber-200 hover:text-white hover:bg-[#2e1f14] rounded-lg text-[10px] font-medium cursor-pointer"
               title="リセット"
             >
@@ -260,13 +274,13 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
           ref={officeRef}
           className="relative rounded-3xl shadow-2xl border-4 border-[#5c3a1e] transition-transform duration-100 ease-out origin-center overflow-hidden"
           style={{
-            width: '980px',
-            height: '620px',
+            width: `${OFFICE_MAP_WIDTH}px`,
+            height: `${OFFICE_MAP_HEIGHT}px`,
             transform: `scale(${zoomLevel})`,
           }}
         >
           {/* フロア/シチュエーション切り替え表示 */}
-          {activeFloor === 'rpg_office' ? (
+          {activeFloor === OFFICE_FLOOR.RPG_OFFICE ? (
             <RpgOfficeMap />
           ) : (
             <ConferenceSummitMap />
@@ -325,8 +339,8 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
                 exit={{ opacity: 0, scale: 0.9 }}
                 className="absolute z-50 bg-[#241a12] text-amber-100 rounded-3xl p-4 shadow-2xl border-2 border-amber-500 w-80 backdrop-blur-xl"
                 style={{
-                  left: Math.min(clickedMember.position.x + 35, 660),
-                  top: Math.max(clickedMember.position.y - 130, 20),
+                  left: Math.min(clickedMember.position.x + AVATAR_POPUP_LAYOUT.offsetX, AVATAR_POPUP_LAYOUT.maxLeft),
+                  top: Math.max(clickedMember.position.y - AVATAR_POPUP_LAYOUT.offsetY, AVATAR_POPUP_LAYOUT.minTop),
                 }}
               >
                 <div className="flex items-start justify-between">
@@ -365,7 +379,7 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
                     <span>現在の居場所プロパティ:</span>
                   </div>
                   <div className="text-xs font-bold text-amber-200">
-                    {clickedMember.currentLocationName || '💼 メイン執務ラウンジ ＆ コラボレーションエリア'}
+                    {clickedMember.currentLocationName || DEFAULT_OFFICE_ZONE.zoneName}
                   </div>
                   {clickedMember.customStatusMsg && (
                     <div className="mt-1.5 text-[11px] text-amber-300/90 italic bg-[#241a12] p-1.5 rounded-lg border border-[#4a3424]">
@@ -412,7 +426,7 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
             <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-ping" />
             <span className="font-black text-amber-400">現在地:</span>
             <span className="bg-[#17100b] px-2.5 py-0.5 rounded-md text-[11px] font-mono text-amber-200 border border-amber-600">
-              {selfMember.currentLocationName || '💼 メイン執務ラウンジ ＆ コラボレーションエリア'} (X: {Math.round(selfMember.position.x)}, Y: {Math.round(selfMember.position.y)})
+              {selfMember.currentLocationName || DEFAULT_OFFICE_ZONE.zoneName} (X: {Math.round(selfMember.position.x)}, Y: {Math.round(selfMember.position.y)})
             </span>
           </div>
 

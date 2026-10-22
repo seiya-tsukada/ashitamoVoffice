@@ -8,7 +8,6 @@ import {
   MapPin, 
   Mail, 
   Slack, 
-  Sparkles, 
   CheckCircle, 
   Check, 
   CalendarCheck, 
@@ -18,14 +17,21 @@ import {
   ChevronRight, 
   Plus, 
   Tag, 
-  Coffee, 
   Heart, 
-  Layers,
   Building,
   Trash2,
   ExternalLink
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import {
+  BOOKING_DATE_OPTIONS,
+  BOOKING_LOCATION,
+  DEFAULT_BOOKING_DATE,
+  DEFAULT_MEETING_TITLE,
+  DEFAULT_MEETING_TYPE,
+  MEETING_TYPE_OPTIONS,
+  MeetingType,
+} from '../constants/booking';
 
 interface ProfileCalendarViewProps {
   members: Member[];
@@ -49,10 +55,10 @@ export const ProfileCalendarView: React.FC<ProfileCalendarViewProps> = ({
   onNavigateTo,
 }) => {
   // カレンダー予約用ステート
-  const [selectedDate, setSelectedDate] = useState<string>('2026-08-24');
+  const [selectedDate, setSelectedDate] = useState<string>(DEFAULT_BOOKING_DATE);
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
-  const [meetingType, setMeetingType] = useState<'casual' | '1on1' | 'review' | 'deep'>('1on1');
-  const [meetingTitle, setMeetingTitle] = useState<string>('ovice 1on1 ミーティング');
+  const [meetingType, setMeetingType] = useState<MeetingType>(DEFAULT_MEETING_TYPE);
+  const [meetingTitle, setMeetingTitle] = useState<string>(DEFAULT_MEETING_TITLE);
   const [meetingNotes, setMeetingNotes] = useState<string>('');
   const [showSuccessModal, setShowSuccessModal] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<'booking' | 'scheduled'>('booking');
@@ -73,7 +79,7 @@ export const ProfileCalendarView: React.FC<ProfileCalendarViewProps> = ({
       time: selectedSlot,
       title: meetingTitle || `${selectedMember.name} との1on1`,
       meetingType,
-      location: `ovice バーチャル空間 (ラウンジ・個別ブース)`,
+      location: BOOKING_LOCATION,
       notes: meetingNotes,
     });
 
@@ -84,13 +90,6 @@ export const ProfileCalendarView: React.FC<ProfileCalendarViewProps> = ({
 
   // 選択中メンバーとの既存予約
   const memberBookings = bookings.filter((b) => b.memberId === selectedMember.id);
-
-  const meetingTypesConfig = [
-    { id: 'casual' as const, label: '15分 雑談・クイック相談', badge: '15min', icon: Coffee, color: 'bg-amber-50 text-amber-700 border-amber-200' },
-    { id: '1on1' as const, label: '30分 定期1on1 / 相談', badge: '30min', icon: User, color: 'bg-blue-50 text-blue-700 border-blue-200' },
-    { id: 'review' as const, label: '45分 デザイン・仕様レビュー', badge: '45min', icon: Layers, color: 'bg-purple-50 text-purple-700 border-purple-200' },
-    { id: 'deep' as const, label: '60分 戦略ディスカッション', badge: '60min', icon: Sparkles, color: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
-  ];
 
   return (
     <div className="w-full h-[calc(100vh-4rem)] bg-slate-100 flex flex-col overflow-y-auto select-none">
@@ -311,12 +310,7 @@ export const ProfileCalendarView: React.FC<ProfileCalendarViewProps> = ({
                   1. 日付を選択してください
                 </label>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                  {[
-                    { date: '2026-08-24', label: '8/24 (月)', subtitle: '明日' },
-                    { date: '2026-08-25', label: '8/25 (火)', subtitle: '明後日' },
-                    { date: '2026-08-26', label: '8/26 (水)', subtitle: '水曜日' },
-                    { date: '2026-08-27', label: '8/27 (木)', subtitle: '木曜日' },
-                  ].map((d) => (
+                  {BOOKING_DATE_OPTIONS.map((d) => (
                     <button
                       key={d.date}
                       type="button"
@@ -343,7 +337,7 @@ export const ProfileCalendarView: React.FC<ProfileCalendarViewProps> = ({
                   2. ミーティング種別
                 </label>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {meetingTypesConfig.map((item) => {
+                  {MEETING_TYPE_OPTIONS.map((item) => {
                     const Icon = item.icon;
                     const isSelected = meetingType === item.id;
                     return (

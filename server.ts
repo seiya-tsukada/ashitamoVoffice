@@ -4,132 +4,23 @@ import path from "path";
 import { WebSocketServer, WebSocket } from "ws";
 import { createServer as createViteServer } from "vite";
 
-interface UserPosition {
-  x: number;
-  y: number;
-}
-
-interface UserSessionData {
-  id: string;
-  name: string;
-  nameEn?: string;
-  role: string;
-  department: string;
-  avatar: string;
-  avatarMode?: "sprite" | "icon";
-  rpgClass: string;
-  rpgLevel: number;
-  status: {
-    state: string;
-    label: string;
-    emoji: string;
-    color: string;
-  };
-  customStatusMsg?: string;
-  position: UserPosition;
-  currentZoneId: string;
-  currentLocationName: string;
-  isSpeaking: boolean;
-  voiceRange: number;
-  lastActive: number;
-  isRealUser?: boolean;
-}
-
-interface ChatMessageData {
-  id: string;
-  senderId: string;
-  senderName: string;
-  senderAvatar: string;
-  content: string;
-  timestamp: string;
-  type: "text" | "zone_announcement" | "system";
-  channelId?: string;
-}
+import { CLIENT_MESSAGE, SERVER_MESSAGE, WS_PATH } from "./shared/realtime";
+import { formatChatTimestamp } from "./shared/time";
+import {
+  CHAT_HISTORY_API_LIMIT,
+  CHAT_HISTORY_INIT_LIMIT,
+  CHAT_HISTORY_MAX,
+  SERVER_HOST,
+  SERVER_PORT,
+  SYSTEM_SENDER,
+} from "./server/constants";
+import { DEFAULT_RESIDENTS } from "./server/residents";
+import type { ChatMessageData, UserSessionData } from "./server/types";
 
 // In-Memory User Session & Room State (揮発性メモリ)
 const activeUsers = new Map<string, UserSessionData>();
 const chatHistory: ChatMessageData[] = [];
 const clientSockets = new Map<string, WebSocket>();
-
-// 初期NPC/常駐メンバーデータ（一人だけで接続しても空間が寂しくないよう配置、他者が接続するとリアルユーザーとして追加）
-const DEFAULT_RESIDENTS: UserSessionData[] = [
-  {
-    id: "npc-tanaka",
-    name: "田中 健一",
-    nameEn: "Kenichi Tanaka",
-    role: "エンジニアリングマネージャー",
-    department: "Engineering Unit",
-    avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80",
-    rpgClass: "knight",
-    rpgLevel: 6,
-    status: { state: "online", label: "オンライン (Online)", emoji: "🟢", color: "#10B981" },
-    customStatusMsg: "Q3ロードマップ策定中 📋",
-    position: { x: 370, y: 190 },
-    currentZoneId: "throne_lounge",
-    currentLocationName: "メイン執務ラウンジ ＆ コラボレーションエリア",
-    isSpeaking: true,
-    voiceRange: 120,
-    lastActive: Date.now(),
-    isRealUser: false,
-  },
-  {
-    id: "npc-sato",
-    name: "佐藤 美咲",
-    nameEn: "Misaki Sato",
-    role: "シニアUI/UXデザイナー",
-    department: "Design System Squad",
-    avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80",
-    rpgClass: "bard",
-    rpgLevel: 5,
-    status: { state: "focus", label: "集中作業中 (Focus)", emoji: "🟣", color: "#A855F7" },
-    customStatusMsg: "デザインシステム改修中 🎨",
-    position: { x: 740, y: 460 },
-    currentZoneId: "forge_lab",
-    currentLocationName: "プロジェクトルーム ＆ クリエイティブラボ",
-    isSpeaking: false,
-    voiceRange: 100,
-    lastActive: Date.now(),
-    isRealUser: false,
-  },
-  {
-    id: "npc-watanabe",
-    name: "渡辺 翔太",
-    nameEn: "Shota Watanabe",
-    role: "フロントエンドリード",
-    department: "Core Web Squad",
-    avatar: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80",
-    rpgClass: "scholar",
-    rpgLevel: 8,
-    status: { state: "online", label: "オンライン (Online)", emoji: "🟢", color: "#10B981" },
-    customStatusMsg: "TypeScript v5移行検証中 💻",
-    position: { x: 190, y: 460 },
-    currentZoneId: "magic_library",
-    currentLocationName: "集中作業ブース ＆ サイレントスペース",
-    isSpeaking: false,
-    voiceRange: 110,
-    lastActive: Date.now(),
-    isRealUser: false,
-  },
-  {
-    id: "npc-kobayashi",
-    name: "小林 誠",
-    nameEn: "Makoto Kobayashi",
-    role: "プロダクトマネージャー",
-    department: "Product Division",
-    avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&auto=format&fit=crop&q=80",
-    rpgClass: "mage",
-    rpgLevel: 7,
-    status: { state: "break", label: "休憩中 (Break)", emoji: "☕️", color: "#3B82F6" },
-    customStatusMsg: "コーヒーブレイク中 ☕️",
-    position: { x: 190, y: 190 },
-    currentZoneId: "guild_tavern",
-    currentLocationName: "カフェスペース ＆ リフレッシュラウンジ",
-    isSpeaking: false,
-    voiceRange: 110,
-    lastActive: Date.now(),
-    isRealUser: false,
-  }
-];
 
 // 初期ユーザーをメモリに投入
 DEFAULT_RESIDENTS.forEach((user) => {
@@ -139,8 +30,6 @@ DEFAULT_RESIDENTS.forEach((user) => {
 async function startServer() {
   const app = express();
   const server = http.createServer(app);
-  const PORT = 3000;
-
   app.use(express.json());
 
   // ================= 1. REST API (セッション＆ルーム情報) =================
@@ -162,12 +51,12 @@ async function startServer() {
 
   app.get("/api/session/chats", (_req, res) => {
     res.json({
-      messages: chatHistory.slice(-50),
+      messages: chatHistory.slice(-CHAT_HISTORY_API_LIMIT),
     });
   });
 
   // ================= 2. WebSocket リアルタイム同時接続管理 =================
-  const wss = new WebSocketServer({ server, path: "/ws" });
+  const wss = new WebSocketServer({ server, path: WS_PATH });
 
   // 全クライアントへのブロードキャスト関数
   const broadcast = (data: any, excludeUserId?: string) => {
@@ -189,7 +78,7 @@ async function startServer() {
 
         switch (type) {
           // 1. ユーザー入室（セッション開始 / 参加）
-          case "join": {
+          case CLIENT_MESSAGE.JOIN: {
             const userData: UserSessionData = {
               ...payload,
               lastActive: Date.now(),
@@ -202,10 +91,10 @@ async function startServer() {
             // 送信者に現在の全ユーザー＆チャット履歴を同期
             ws.send(
               JSON.stringify({
-                type: "init-state",
+                type: SERVER_MESSAGE.INIT_STATE,
                 payload: {
                   users: Array.from(activeUsers.values()),
-                  chats: chatHistory.slice(-30),
+                  chats: chatHistory.slice(-CHAT_HISTORY_INIT_LIMIT),
                   activeConnectionCount: clientSockets.size,
                 },
               })
@@ -214,7 +103,7 @@ async function startServer() {
             // 他の全員に入室をブロードキャスト
             broadcast(
               {
-                type: "user-joined",
+                type: SERVER_MESSAGE.USER_JOINED,
                 payload: {
                   user: userData,
                   activeConnectionCount: clientSockets.size,
@@ -226,20 +115,20 @@ async function startServer() {
             // システムチャット通知
             const sysMsg: ChatMessageData = {
               id: `sys-${Date.now()}-${Math.random().toString(36).substring(2, 5)}`,
-              senderId: "system",
-              senderName: "システム通知",
-              senderAvatar: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=150&auto=format&fit=crop&q=80",
+              senderId: SYSTEM_SENDER.id,
+              senderName: SYSTEM_SENDER.name,
+              senderAvatar: SYSTEM_SENDER.avatar,
               content: `🏰 ${userData.name} さんがオフィスに入室しました。(${userData.currentLocationName})`,
-              timestamp: new Date().toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" }),
+              timestamp: formatChatTimestamp(),
               type: "system",
             };
             chatHistory.push(sysMsg);
-            broadcast({ type: "new-chat", payload: sysMsg });
+            broadcast({ type: SERVER_MESSAGE.NEW_CHAT, payload: sysMsg });
             break;
           }
 
           // 2. 位置・居場所移動同期（ドラッグ＆ドロップ、クリック、テレポート）
-          case "move": {
+          case CLIENT_MESSAGE.MOVE: {
             if (!currentUserId) return;
             const existing = activeUsers.get(currentUserId);
             if (existing) {
@@ -251,7 +140,7 @@ async function startServer() {
 
               broadcast(
                 {
-                  type: "user-moved",
+                  type: SERVER_MESSAGE.USER_MOVED,
                   payload: {
                     userId: currentUserId,
                     position: payload.position,
@@ -266,7 +155,7 @@ async function startServer() {
           }
 
           // 3. プロフィール / アバター / ステータス変更
-          case "update-profile": {
+          case CLIENT_MESSAGE.UPDATE_PROFILE: {
             if (!currentUserId) return;
             const existing = activeUsers.get(currentUserId);
             if (existing) {
@@ -274,7 +163,7 @@ async function startServer() {
               activeUsers.set(currentUserId, updated);
 
               broadcast({
-                type: "user-updated",
+                type: SERVER_MESSAGE.USER_UPDATED,
                 payload: { user: updated },
               });
             }
@@ -282,32 +171,32 @@ async function startServer() {
           }
 
           // 4. チャットメッセージ送信
-          case "send-chat": {
+          case CLIENT_MESSAGE.SEND_CHAT: {
             const chat: ChatMessageData = {
               id: `chat-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
               senderId: payload.senderId,
               senderName: payload.senderName,
               senderAvatar: payload.senderAvatar,
               content: payload.content,
-              timestamp: new Date().toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" }),
+              timestamp: formatChatTimestamp(),
               type: payload.type || "text",
               channelId: payload.channelId,
             };
             chatHistory.push(chat);
-            if (chatHistory.length > 200) chatHistory.shift();
+            if (chatHistory.length > CHAT_HISTORY_MAX) chatHistory.shift();
 
             broadcast({
-              type: "new-chat",
+              type: SERVER_MESSAGE.NEW_CHAT,
               payload: chat,
             });
             break;
           }
 
           // 5. リアクションエモート（頭上の吹き出し同期）
-          case "reaction": {
+          case CLIENT_MESSAGE.REACTION: {
             if (!currentUserId) return;
             broadcast({
-              type: "user-reaction",
+              type: SERVER_MESSAGE.USER_REACTION,
               payload: {
                 userId: currentUserId,
                 emoji: payload.emoji,
@@ -317,8 +206,8 @@ async function startServer() {
           }
 
           // 6. 心拍（Heartbeat Ping/Pong）
-          case "ping": {
-            ws.send(JSON.stringify({ type: "pong", timestamp: Date.now() }));
+          case CLIENT_MESSAGE.PING: {
+            ws.send(JSON.stringify({ type: SERVER_MESSAGE.PONG, timestamp: Date.now() }));
             break;
           }
         }
@@ -337,7 +226,7 @@ async function startServer() {
         if (leavingUser && leavingUser.isRealUser) {
           activeUsers.delete(currentUserId);
           broadcast({
-            type: "user-left",
+            type: SERVER_MESSAGE.USER_LEFT,
             payload: {
               userId: currentUserId,
               name: leavingUser.name,
@@ -348,15 +237,15 @@ async function startServer() {
           // 退室通知
           const sysMsg: ChatMessageData = {
             id: `sys-${Date.now()}-${Math.random().toString(36).substring(2, 5)}`,
-            senderId: "system",
-            senderName: "システム通知",
-            senderAvatar: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=150&auto=format&fit=crop&q=80",
+            senderId: SYSTEM_SENDER.id,
+            senderName: SYSTEM_SENDER.name,
+            senderAvatar: SYSTEM_SENDER.avatar,
             content: `🚪 ${leavingUser.name} さんが退出しました。`,
-            timestamp: new Date().toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" }),
+            timestamp: formatChatTimestamp(),
             type: "system",
           };
           chatHistory.push(sysMsg);
-          broadcast({ type: "new-chat", payload: sysMsg });
+          broadcast({ type: SERVER_MESSAGE.NEW_CHAT, payload: sysMsg });
         }
       }
     });
@@ -377,8 +266,8 @@ async function startServer() {
     });
   }
 
-  server.listen(PORT, "0.0.0.0", () => {
-    console.log(`🏰 Virtual Office Server running on http://0.0.0.0:${PORT}`);
+  server.listen(SERVER_PORT, SERVER_HOST, () => {
+    console.log(`🏰 Virtual Office Server running on http://${SERVER_HOST}:${SERVER_PORT}`);
   });
 }
 

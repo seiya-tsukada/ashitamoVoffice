@@ -5,19 +5,18 @@ import { RpgOfficeMap } from './RpgOfficeMap';
 import { ConferenceSummitMap } from './ConferenceSummitMap';
 import { CharacterAvatarPickerModal } from './CharacterAvatarPickerModal';
 import { RpgCharacterSprite } from './RpgCharacterSprite';
-import { 
-  MessageSquare, 
-  Calendar, 
-  Volume2, 
-  MapPin, 
-  ZoomIn, 
-  ZoomOut, 
-  Maximize2, 
+import {
+  MessageSquare,
+  Calendar,
+  Volume2,
+  MapPin,
+  ZoomIn,
+  ZoomOut,
+  Maximize2,
   ChevronRight,
   Globe,
   Sword,
   Sparkles,
-  Users
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import {

@@ -1,4 +1,4 @@
-import { Member, ChatMessage, Booking } from '../types';
+import { Member, Booking } from '../types';
 import { USER_STATUSES } from '../constants/userStatus';
 
 export const INITIAL_MEMBERS: Member[] = [
@@ -175,53 +175,6 @@ export const INITIAL_MEMBERS: Member[] = [
     availableSlots: [
       { id: 'slot-bot1', date: '2026-08-25', time: 'Anytime', available: true },
     ],
-  },
-];
-
-export const INITIAL_CHAT_MESSAGES: ChatMessage[] = [
-  {
-    id: 'msg-1',
-    senderId: 'user-tanaka',
-    senderName: '田中 健一',
-    senderAvatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
-    rpgClass: 'knight',
-    isSelf: false,
-    content: 'みなさんおはようございます！本日の全体ミーティングは16:00からメインカンファレンスルームで行います。',
-    timestamp: '09:30',
-    reactions: [{ emoji: '👍', count: 3, userReacted: true }],
-  },
-  {
-    id: 'msg-2',
-    senderId: 'user-self',
-    senderName: 'あなた (You)',
-    senderAvatar: 'https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?w=150&auto=format&fit=crop&q=80',
-    rpgClass: 'hero',
-    isSelf: true,
-    content: '了解です！新機能のUIモック画面を共有準備しておきます。',
-    timestamp: '09:35',
-    reactions: [{ emoji: '🎉', count: 2, userReacted: false }],
-  },
-  {
-    id: 'msg-3',
-    senderId: 'user-ai-bot',
-    senderName: 'ovice Office AI Bot',
-    senderAvatar: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=150&auto=format&fit=crop&q=80',
-    rpgClass: 'robot',
-    isSelf: false,
-    content: '🤖 【リマインド】16:00の会議室予約と画面共有のセットアップが完了しました。',
-    timestamp: '09:36',
-    isAutonomous: true,
-    reactions: [{ emoji: '🤖', count: 4, userReacted: true }],
-  },
-  {
-    id: 'msg-4',
-    senderId: 'user-sato',
-    senderName: '佐藤 結衣',
-    senderAvatar: 'https://images.unsplash.com/photo-1581092918056-0c4c3acd3789?w=150&auto=format&fit=crop&q=80',
-    rpgClass: 'mage',
-    isSelf: false,
-    content: '新機能のPRを作成しました。集中作業ブースでコードレビュー中です！',
-    timestamp: '11:15',
   },
 ];
 

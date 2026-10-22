@@ -2,21 +2,16 @@ import React, { useState } from 'react';
 import { UserStatus } from '../types';
 import { USER_STATUSES } from '../constants/userStatus';
 import { REACTION_EMOJIS } from '../constants/chat';
-import { 
-  Mic, 
-  MicOff, 
-  Video, 
-  VideoOff, 
-  Volume2, 
-  VolumeX, 
-  MonitorUp, 
-  Smile, 
-  Megaphone, 
-  Radio, 
-  Settings,
-  Flame,
-  Coffee,
-  CheckCircle2
+import {
+  Mic,
+  MicOff,
+  Video,
+  VideoOff,
+  Volume2,
+  VolumeX,
+  MonitorUp,
+  Smile,
+  Megaphone,
 } from 'lucide-react';
 
 interface ToolbarProps {

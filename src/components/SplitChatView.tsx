@@ -1,34 +1,22 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Member, ChatMessage, PageType } from '../types';
-import { 
-  Send, 
-  Smile, 
-  Sparkles, 
-  Bot, 
-  Mic, 
-  MicOff, 
-  Volume2, 
-  Radio, 
-  Calendar, 
-  User, 
-  MessageSquare, 
-  CheckCheck, 
-  Clock,
-  Play,
-  RotateCcw,
-  PlusCircle,
-  HelpCircle,
-  Video,
-  Monitor
+import {
+  Send,
+  Sparkles,
+  Bot,
+  Volume2,
+  Radio,
+  Calendar,
+  MessageSquare,
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion } from 'motion/react';
 import { AUTO_REPLY_DELAY_MS, QUICK_MESSAGE_TEMPLATES, buildAutoReplies } from '../constants/chat';
 
 interface SplitChatViewProps {
   members: Member[];
   selfMember: Member;
   chatMessages: ChatMessage[];
-  onSendMessage: (content: string, isAutonomous?: boolean, targetSenderId?: string) => void;
+  onSendMessage: (content: string) => void;
   selectedMember: Member;
   onSelectMember: (member: Member) => void;
   onNavigateTo: (page: PageType, member?: Member) => void;
@@ -64,7 +52,7 @@ export const SplitChatView: React.FC<SplitChatViewProps> = ({
 
     const userText = inputMessage;
     setInputMessage('');
-    onSendMessage(userText, false);
+    onSendMessage(userText);
 
     // 相手が自律的に返信するシミュレーション（1.2秒後）
     setIsTyping(true);
@@ -72,7 +60,7 @@ export const SplitChatView: React.FC<SplitChatViewProps> = ({
       setIsTyping(false);
       const replies = buildAutoReplies(userText);
       const randomReply = replies[Math.floor(Math.random() * replies.length)];
-      onSendMessage(randomReply, false, selectedMember.id);
+      onSendMessage(randomReply);
     }, AUTO_REPLY_DELAY_MS);
   };
 
@@ -418,7 +406,7 @@ export const SplitChatView: React.FC<SplitChatViewProps> = ({
           {QUICK_MESSAGE_TEMPLATES.map((tmpl, idx) => (
             <button
               key={idx}
-              onClick={() => onSendMessage(tmpl, false)}
+              onClick={() => onSendMessage(tmpl)}
               className="shrink-0 bg-slate-100 hover:bg-slate-200 text-slate-700 px-2.5 py-1 rounded-full border border-slate-200/80 transition-colors font-medium"
             >
               {tmpl}

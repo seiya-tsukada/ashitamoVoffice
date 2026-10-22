@@ -1,16 +1,10 @@
 import React from 'react';
-import { 
-  Building2, 
-  Tv, 
-  MapPin, 
-  Radio, 
-  Presentation, 
-  Users, 
-  Calendar, 
-  Sparkles,
-  ExternalLink,
+import {
+  Building2,
+  Radio,
+  Presentation,
+  Calendar,
   Car,
-  Ticket
 } from 'lucide-react';
 
 export const ConferenceSummitMap: React.FC = () => {

@@ -1,26 +1,20 @@
 import React, { useState } from 'react';
-import { Member, Booking, TimeSlot, PageType } from '../types';
-import { 
-  Calendar, 
-  Clock, 
-  User, 
-  Briefcase, 
-  MapPin, 
-  Mail, 
-  Slack, 
-  CheckCircle, 
-  Check, 
-  CalendarCheck, 
-  Video, 
-  MessageSquare, 
-  ChevronLeft, 
-  ChevronRight, 
-  Plus, 
-  Tag, 
-  Heart, 
+import { Member, Booking, PageType } from '../types';
+import {
+  Calendar,
+  Clock,
+  User,
+  Slack,
+  CheckCircle,
+  Check,
+  CalendarCheck,
+  MessageSquare,
+  Plus,
+  Tag,
+  Heart,
   Building,
   Trash2,
-  ExternalLink
+  ExternalLink,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import {

@@ -1,14 +1,11 @@
 import React from 'react';
-import { 
-  Flame, 
-  Sparkles, 
-  Shield, 
-  BookOpen, 
-  Coffee, 
-  Tv, 
-  Crown, 
-  Sword, 
-  Coins
+import {
+  Sparkles,
+  BookOpen,
+  Coffee,
+  Tv,
+  Crown,
+  Coins,
 } from 'lucide-react';
 
 export const RpgOfficeMap: React.FC = () => {

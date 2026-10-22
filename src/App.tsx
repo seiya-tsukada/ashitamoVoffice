@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { PageType, Member, ChatMessage, Booking, UserStatus } from './types';
+import { PageType, Member, Booking, UserStatus } from './types';
 import { INITIAL_MEMBERS, INITIAL_BOOKINGS, AUTONOMOUS_MESSAGES_POOL } from './data/mockData';
 import { OFFICE_ZONES } from './constants/zones';
 import { USER_STATUSES } from './constants/userStatus';
@@ -120,7 +120,7 @@ export default function App() {
   };
 
   // チャット送信
-  const handleSendMessage = (content: string, isAutonomous = false, targetSenderId?: string) => {
+  const handleSendMessage = (content: string) => {
     sendChat(content);
   };
 

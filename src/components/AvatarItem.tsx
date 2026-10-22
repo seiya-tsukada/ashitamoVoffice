@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import { motion } from 'motion/react';
 import { Member } from '../types';
 import { RpgCharacterSprite } from './RpgCharacterSprite';
-import { Volume2, Move } from 'lucide-react';
+import { Volume2 } from 'lucide-react';
 import { AVATAR_POSITION_BOUNDS, DEFAULT_VOICE_RANGE, DRAG_START_THRESHOLD_PX } from '../constants/officeMap';
 import { RPG_JOB_LABELS } from '../constants/rpgJob';
 

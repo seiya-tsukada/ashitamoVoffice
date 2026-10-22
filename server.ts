@@ -1,10 +1,10 @@
 import express from "express";
 import http from "http";
 import path from "path";
-import { WebSocketServer, WebSocket } from "ws";
+import { WebSocketServer, WebSocket, type RawData } from "ws";
 import { createServer as createViteServer } from "vite";
 
-import { CLIENT_MESSAGE, SERVER_MESSAGE, WS_PATH } from "./shared/realtime";
+import { CLIENT_MESSAGE, SERVER_MESSAGE, WS_PATH, type ClientMessage, type ServerMessage } from "./shared/realtime";
 import { formatChatTimestamp } from "./shared/time";
 import {
   CHAT_HISTORY_API_LIMIT,
@@ -58,9 +58,13 @@ async function startServer() {
   // ================= 2. WebSocket リアルタイム同時接続管理 =================
   const wss = new WebSocketServer({ server, path: WS_PATH });
 
+  const send = (ws: WebSocket, message: ServerMessage) => {
+    ws.send(JSON.stringify(message));
+  };
+
   // 全クライアントへのブロードキャスト関数
-  const broadcast = (data: any, excludeUserId?: string) => {
-    const payload = JSON.stringify(data);
+  const broadcast = (message: ServerMessage, excludeUserId?: string) => {
+    const payload = JSON.stringify(message);
     clientSockets.forEach((ws, userId) => {
       if (userId !== excludeUserId && ws.readyState === WebSocket.OPEN) {
         ws.send(payload);
@@ -71,14 +75,14 @@ async function startServer() {
   wss.on("connection", (ws: WebSocket) => {
     let currentUserId: string | null = null;
 
-    ws.on("message", (rawMessage: string) => {
+    ws.on("message", (rawMessage: RawData) => {
       try {
-        const message = JSON.parse(rawMessage.toString());
-        const { type, payload } = message;
+        const message = JSON.parse(rawMessage.toString()) as ClientMessage;
 
-        switch (type) {
+        switch (message.type) {
           // 1. ユーザー入室（セッション開始 / 参加）
           case CLIENT_MESSAGE.JOIN: {
+            const { payload } = message;
             const userData: UserSessionData = {
               ...payload,
               lastActive: Date.now(),
@@ -89,16 +93,14 @@ async function startServer() {
             clientSockets.set(userData.id, ws);
 
             // 送信者に現在の全ユーザー＆チャット履歴を同期
-            ws.send(
-              JSON.stringify({
-                type: SERVER_MESSAGE.INIT_STATE,
-                payload: {
-                  users: Array.from(activeUsers.values()),
-                  chats: chatHistory.slice(-CHAT_HISTORY_INIT_LIMIT),
-                  activeConnectionCount: clientSockets.size,
-                },
-              })
-            );
+            send(ws, {
+              type: SERVER_MESSAGE.INIT_STATE,
+              payload: {
+                users: Array.from(activeUsers.values()),
+                chats: chatHistory.slice(-CHAT_HISTORY_INIT_LIMIT),
+                activeConnectionCount: clientSockets.size,
+              },
+            });
 
             // 他の全員に入室をブロードキャスト
             broadcast(
@@ -129,6 +131,7 @@ async function startServer() {
 
           // 2. 位置・居場所移動同期（ドラッグ＆ドロップ、クリック、テレポート）
           case CLIENT_MESSAGE.MOVE: {
+            const { payload } = message;
             if (!currentUserId) return;
             const existing = activeUsers.get(currentUserId);
             if (existing) {
@@ -156,6 +159,7 @@ async function startServer() {
 
           // 3. プロフィール / アバター / ステータス変更
           case CLIENT_MESSAGE.UPDATE_PROFILE: {
+            const { payload } = message;
             if (!currentUserId) return;
             const existing = activeUsers.get(currentUserId);
             if (existing) {
@@ -172,6 +176,7 @@ async function startServer() {
 
           // 4. チャットメッセージ送信
           case CLIENT_MESSAGE.SEND_CHAT: {
+            const { payload } = message;
             const chat: ChatMessageData = {
               id: `chat-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
               senderId: payload.senderId,
@@ -194,6 +199,7 @@ async function startServer() {
 
           // 5. リアクションエモート（頭上の吹き出し同期）
           case CLIENT_MESSAGE.REACTION: {
+            const { payload } = message;
             if (!currentUserId) return;
             broadcast({
               type: SERVER_MESSAGE.USER_REACTION,
@@ -207,7 +213,7 @@ async function startServer() {
 
           // 6. 心拍（Heartbeat Ping/Pong）
           case CLIENT_MESSAGE.PING: {
-            ws.send(JSON.stringify({ type: SERVER_MESSAGE.PONG, timestamp: Date.now() }));
+            send(ws, { type: SERVER_MESSAGE.PONG, timestamp: Date.now() });
             break;
           }
         }
